@@ -1,3 +1,4 @@
+<!--
 <!doctype html> <html lang="es"> 
     <head> 
         <meta charset="utf-8"> 
@@ -14,3 +15,138 @@
         <p>Hola, soy Marco. Esta es mi página de inicio.</p> 
     </body> 
     </html>
+-->
+    <!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Portal - Módulo 1</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 500px; margin: 3rem auto; padding: 1rem; background-color: #f4f4f9; }
+        .oculto { display: none; }
+        .error { color: #d9534f; font-weight: bold; }
+        .exito { color: #5cb85c; font-weight: bold; }
+        input, button { display: block; width: 100%; margin: 0.8rem 0; padding: 0.8rem; box-sizing: border-box; border-radius: 5px; border: 1px solid #ccc; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #0056b3; }
+        .btn-salir { background-color: #d9534f; margin-top: 2rem; }
+        .btn-salir:hover { background-color: #c9302c; }
+        .card { background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+    <!-- PANTALLA 1: LOGIN Y REGISTRO -->
+    <div id="seccion-auth" class="card">
+        <h2>Acceso al Portal</h2>
+        <p id="mensaje-auth"></p>
+        
+        <input type="email" id="email" placeholder="Correo electrónico">
+        <input type="password" id="pass" placeholder="Contraseña (mín. 6 caracteres)">
+        
+        <button onclick="entrar()">Iniciar Sesión</button>
+        <button onclick="registrar()" style="background-color: #28a745;">Crear Cuenta</button>
+    </div>
+
+    <!-- PANTALLA 2: APP (SOLO SI HAY SESIÓN) -->
+    <div id="seccion-app" class="card oculto">
+        <h2>Panel de Solicitudes</h2>
+        <p>Sesión iniciada como: <strong id="user-email"></strong></p>
+        
+        <hr>
+        <h3>Crear nueva solicitud</h3>
+        <input type="text" id="titulo" placeholder="Título de la solicitud">
+        <input type="number" id="monto" placeholder="Monto">
+        <button onclick="crearSolicitud()">Guardar Solicitud</button>
+        
+        <button onclick="salir()" class="btn-salir">Cerrar Sesión</button>
+    </div>
+
+    <!-- Cargar librería de Supabase y tu configuración -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+
+    <script>
+        // Funciones auxiliares
+        const val = (id) => document.getElementById(id).value;
+        const msg = (texto, esExito) => {
+            const el = document.getElementById('mensaje-auth');
+            el.textContent = texto;
+            el.className = esExito ? 'exito' : 'error';
+        };
+
+        // 1. Función Registrarse
+        async function registrar(){
+            const { error } = await supabase.auth.signUp({ 
+                email: val('email'), 
+                password: val('pass') 
+            });
+            if (error) return msg('Error: ' + error.message, false);
+            msg('Cuenta creada. Ya puedes iniciar sesión.', true);
+        }
+
+        // 2. Función Entrar
+        async function entrar(){
+            const { error } = await supabase.auth.signInWithPassword({ 
+                email: val('email'), 
+                password: val('pass') 
+            });
+            if (error) return msg('Credenciales incorrectas o cuenta no existe.', false);
+            mostrarApp();
+        }
+
+        // 3. Función Salir
+        async function salir(){
+            await supabase.auth.signOut();
+            document.getElementById('seccion-app').classList.add('oculto');
+            document.getElementById('seccion-auth').classList.remove('oculto');
+            document.getElementById('user-email').textContent = '';
+            msg('', true); // limpiar mensajes
+            document.getElementById('email').value = '';
+            document.getElementById('pass').value = '';
+        }
+
+        // 4. Mostrar la App
+        async function mostrarApp() {
+            document.getElementById('seccion-auth').classList.add('oculto');
+            document.getElementById('seccion-app').classList.remove('oculto');
+            
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) document.getElementById('user-email').textContent = user.email;
+        }
+
+        // 5. Guardar Solicitud
+        async function crearSolicitud() {
+            const titulo = val('titulo');
+            const monto = val('monto');
+            
+            if (!titulo || !monto) return alert('Por favor llena todos los campos');
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return alert('No hay sesión activa');
+
+            const { error } = await supabase
+                .from('solicitudes')
+                .insert({ 
+                    titulo: titulo, 
+                    monto: parseFloat(monto), 
+                    usuario_email: user.email 
+                });
+
+            if (error) {
+                alert('Error al guardar: ' + error.message);
+            } else {
+                alert('¡Solicitud guardada con éxito!');
+                document.getElementById('titulo').value = '';
+                document.getElementById('monto').value = '';
+            }
+        }
+
+        // 6. Verificar si ya hay sesión al cargar la página
+        (async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) mostrarApp();
+        })();
+    </script>
+</body>
+</html>
